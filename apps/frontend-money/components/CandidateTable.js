@@ -1,0 +1,319 @@
+import { Progress } from '@nextui-org/react'
+import { useRouter } from 'next/router'
+import React, { useEffect, useRef, useState } from 'react'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { useProcess } from '../context/ProcessContext'
+import { updateCandidateStatus } from '../services/candidateService'
+import { updateProcessCount } from '../services/process/actions/updateProcessCount'
+import Dropdown from './ui/Dropdown'
+
+
+/**
+ * Componente CandidateTable
+ *
+ * Este componente muestra una tabla con la lista de candidatos y permite realizar acciones sobre ellos.
+ *
+ * @component
+ * @param {Object} props - Propiedades del componente
+ * @param {Array} props.candidates - Lista de candidatos a mostrar
+ * @param {string} props.processId - ID del proceso actual
+ * @param {string} props.processStatus - Estado actual del proceso
+ * @param {Function} props.onCandidateStatusChange - Función para actualizar el estado de un candidato
+ */
+const CandidateTable = () => {
+  const { candidates, process, setCandidates } = useProcess()
+  const [activeTab, setActiveTab] = useState('candidates')
+  const [showOptions, setShowOptions] = useState(null)
+  const optionsRef = useRef(null)
+  const router = useRouter()
+
+
+  useEffect(() => {
+    /**
+     * Maneja el cierre del menú de opciones al hacer clic fuera de él
+     * @function handleClickOutside
+     * @param {Event} event - El evento de clic
+     */
+    function handleClickOutside(event) {
+      if (optionsRef.current && !optionsRef.current.contains(event.target)) {
+        setShowOptions(null);
+      }
+    }
+
+
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  /**
+   * Actualiza el estado de un candidato y muestra una notificación
+   * @function handleStatusChange
+   * @param {string} candidateId - El ID del candidato
+   * @param {string} newStatus - El nuevo estado del candidato
+   */
+  const handleStatusChange = async (candidateId, newStatus) => {
+    try {
+      await updateCandidateStatus(candidateId, newStatus)
+      const updatedCandidates = candidates.map((candidate) =>
+        candidate.id === candidateId ? { ...candidate, status: newStatus } : candidate,
+      )
+      setCandidates(updatedCandidates)
+      toast.success(`Estado actualizado a: ${newStatus}`, {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+    } catch (error) {
+      console.error('Error al actualizar el estado del candidato:', error)
+      toast.error('Error al actualizar el estado del candidato', {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+    }
+  }
+
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'success'
+    if (score >= 60) return 'warning'
+    return 'primary'
+  }
+
+  /**
+   * Maneja las acciones del menú de opciones
+   * @function handleOptionClick
+   * @param {string} option - La opción seleccionada ('ver', 'agendar', 'historial')
+   * @param {string} candidateId - El ID del candidato
+   * @description
+   * - 'ver': Redirige a la página de detalles del candidato
+   * - 'agendar': (TODO) Implementar lógica para agendar una entrevista
+   * - 'historial': (TODO) Implementar lógica para ver el historial del candidato
+   * @todo Conectar con el backend para las acciones de 'agendar' e 'historial'
+   */
+  const handleOptionClick = (option, candidateId) => {
+    console.log(`Opción seleccionada: ${option} para el candidato ${candidateId}`);
+    switch (option) {
+      case 'ver':
+        console.log('Redirigiendo a:', `/candidates/${candidateId}`);
+        break
+      case 'agendar':
+        // TODO: Implementar la lógica para agendar una entrevista
+        console.log('Agendar entrevista para el candidato', candidateId)
+        break
+      case 'historial':
+        // TODO: Implementar la lógica para ver el historial del candidato
+        console.log('Ver historial del candidato', candidateId)
+        break
+      default:
+        console.log('Opción no reconocida')
+    }
+    setShowOptions(null);
+  }
+
+  /**
+   * Determina el color y el espaciado del ícono de LinkedIn basado en la presencia de la URL
+   * @function getLinkedInIconStyle
+   * @param {string|null} url - La URL de LinkedIn del candidato
+   * @returns {Object} Un objeto con las clases CSS para el color y el espaciado del ícono
+   */
+  const getLinkedInIconStyle = (url) => {
+    return {
+      color: url ? 'text-blue-500 hover:text-blue-700' : 'text-gray-300',
+      spacing: url ? 'mr-2' : 'mr-3'
+    };
+  };
+
+  /**
+   * Formatea la fecha en un formato legible
+   * @function formatDate
+   * @param {string} dateString - La fecha en formato ISO
+   * @returns {string} La fecha formateada
+   */
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  // Actualizar el proceso padre cuando cambian los candidatos
+  useEffect(() => {
+    if (process?.id) {
+      const updateCount = async () => {
+        try {
+          await updateProcessCount(process.id, candidates.length)
+        } catch (error) {
+          console.error('Error al actualizar el contador:', error)
+        }
+      }
+
+      updateCount()
+    }
+  }, [candidates.length, process?.id])
+
+  // Actualizar el proceso padre cuando cambian los candidatos
+  useEffect(() => {
+    if (process?.id) {
+      const updateCount = async () => {
+        try {
+          await updateProcessCount(process.id, candidates.length);
+        } catch (error) {
+          console.error('Error al actualizar el contador:', error);
+        }
+      };
+
+      updateCount();
+    }
+  }, [candidates.length, process?.id]);
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: 'CLP',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  const categoriesNames = candidates.map((candidate) => candidate.category)
+  const escencialesNames = ['salud', 'seguros', 'supermercados']
+  const ocioNames = ['restaurantes', 'entretenimiento', 'viajes']
+  const inversionesNames = ['servicios digitales', 'negocios']
+
+  const escenciales = candidates.filter((candidate) => escencialesNames.includes(candidate.category)).map((candidate) => candidate.total).reduce((acc, total) => acc + total, 0)
+  const ocio = candidates.filter((candidate) => ocioNames.includes(candidate.category)).map((candidate) => candidate.total).reduce((acc, total) => acc + total, 0)
+  const inversiones = candidates.filter((candidate) => inversionesNames.includes(candidate.category)).map((candidate) => candidate.total).reduce((acc, total) => acc + total, 0)
+
+  const groups = [
+    {
+      icon: '🏡',
+      percentaje: 26,
+      amount: escenciales,
+      title: 'Escenciales',
+      description: 'Necesidades básicas, salud, seguros',
+    },
+    {
+      icon: '🍿',
+      percentaje: 67.5,
+      amount: ocio,
+      title: 'Ocio',
+      description: 'Restaurantes, entretenimiento, viajes',
+    },
+    {
+      icon: '🪴',
+      percentaje: 6.5,
+      amount: inversiones,
+      title: 'Inversiones',
+      description: 'Servicios digitales, negocios',
+    },
+  ]
+
+  return (
+    <div className="-mt-2 overflow-hidden bg-white rounded-lg">
+      {/* Tabs de navegación eliminadas */}
+      {/* Contenedor con altura mínima */}
+      <div className="flex flex-row border-1 border-gray-300 rounded-md justify-around p-4 my-8">
+        {groups.map((group) => (
+          <div className='flex flex-col'>
+            <span className="text-gray-600">{group.icon} {group.percentaje}%</span>
+            <p className='text-2xl font-bold'>{formatCurrency(group.amount)}</p>
+            <p className='text-gray-700'>{group.title}</p>
+            <p className='text-gray-700'>{group.description}</p>
+          </div>
+        ))}
+      </div>
+      <div className="min-h-[400px] overflow-auto">
+        {/* Tabla de candidatos */}
+        <table className="w-full text-dark-blue">
+          <thead>
+            <tr className="bg-white">
+              <th className={styles.th}></th>
+              <th className="py-2 pl-0 pr-2 text-left">Categoría</th>
+              <th className="py-2 pl-0 pr-2 text-left">Monto</th>
+              <th className={styles.th}>Kairos AI</th>
+              {/* <th className={styles.th}>Estado</th> */}
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map((candidate, index) => {
+              const dropdownItems = [
+                {
+                  label: 'Ver',
+                  onClick: () => handleOptionClick('ver', candidate.id),
+                }
+                ,
+                // {
+                //   label: 'Agendar',
+                //   onClick: () => handleOptionClick('agendar', candidate.id),
+                // },
+                {
+                  label: 'Historial',
+                  onClick: () => handleOptionClick('historial', candidate.id),
+                },
+              ]
+              const category = candidate.category.charAt(0).toUpperCase() + candidate.category.slice(1).toLowerCase()
+              const moneda = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(candidate.total);
+              return (
+                <tr key={index} className="border-b hover:bg-gray-50">
+                  <td className="pl-4">
+                    <Dropdown items={dropdownItems} />
+                  </td>
+                  <td className="px-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary hover:brightness-75">{category}</span>
+                    </div>
+                  </td>
+                  <td className={styles.td}>{moneda}</td>
+                  <td className={styles.td}>
+                    <Progress
+                      color={getScoreColor(candidate.aiScore)}
+                      value={candidate.aiScore}
+                    />
+                    <span className="text-xs">{candidate.aiScore}%</span>
+                  </td>
+                  {/* <td className={styles.td}>
+                    <Select
+                      value={{ value: candidate.status, label: candidate.status }}
+                      onChange={(selectedOption) =>
+                        handleStatusChange(candidate.id, selectedOption.value)
+                      }
+                      options={VALID_CANDIDATE_STATUSES.map((status) => ({
+                        value: status,
+                        label: status,
+                      }))}
+                      className="w-full"
+                      classNamePrefix="react-select"
+                      isDisabled={process?.status === 'Finalizado'}
+                    />
+                  </td> */}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <ToastContainer />
+    </div>
+  )
+}
+
+export default CandidateTable
+
+const styles = {
+  th: 'py-2 pl-0 pr-2 text-left font-semibold',
+  td: 'pl-0 pr-4 py-2',
+}
